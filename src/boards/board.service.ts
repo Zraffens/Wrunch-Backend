@@ -146,9 +146,6 @@ export class BoardService {
         !this.canPlaceWord(word, startRow, startCol, 1, 0, rows, cols)
       ) {
         for (let i = 0; i < word.length; i++) {
-          console.log(newBoard)
-          console.log(word, startRow, startCol)
-          console.log(startRow + i)
           newBoard[startRow + i][startCol] = word[i].toUpperCase();
           occupiedPositions.add(`${startRow + i}-${startCol}`); // Add occupied positions
         }
@@ -163,6 +160,7 @@ export class BoardService {
       attempts++;
     }
     console.error('Failed to place word:', word);
+    console.log('Failed to place word:', word);
     return newBoard;
   }
 
@@ -194,12 +192,18 @@ export class BoardService {
       );
     }
 
-    // const grid = newBoard.map((row) =>
-    //   row.map((letter) => letter.toUpperCase()),
-    // );
-    console.log(newBoard)
+    const grid = newBoard.map((row) =>
+      row.map((letter) => {
+        const l1 = letter ? letter.toUpperCase() : this.generateRandomLetter().toUpperCase()
+        return l1
+      }),
+    );
+    grid.forEach(row => {
+      console.log(...row)
+    })
+    console.log(occupiedPositions)
 
-    const createdBoard = new this.boardModel({ newBoard, rows, cols });
+    const createdBoard = new this.boardModel({ grid, rows, cols });
     createdBoard.save();
     return createdBoard as BoardDocument;
   }
