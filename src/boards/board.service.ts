@@ -66,7 +66,7 @@ export class BoardService {
     rows: number,
     cols: number,
   ): boolean {
-    return col + word.length * dCol <= cols && row + word.length * dRow <= rows;
+    return (col + word.length * dCol) <= cols || (row + word.length * dRow) <= rows;
   }
 
   swapAdjacentCells(
@@ -111,7 +111,7 @@ export class BoardService {
   ): string[][] {
     let attempts = 0;
     let horBoard = newBoard.slice();
-    while (attempts < 10000) {
+    while (attempts < 1000) {
       const startRow = Math.floor(Math.random() * rows);
       const startCol = Math.floor(Math.random() * cols);
       let isOccupied = false;
@@ -146,6 +146,9 @@ export class BoardService {
         !this.canPlaceWord(word, startRow, startCol, 1, 0, rows, cols)
       ) {
         for (let i = 0; i < word.length; i++) {
+          console.log(newBoard)
+          console.log(word, startRow, startCol)
+          console.log(startRow + i)
           newBoard[startRow + i][startCol] = word[i].toUpperCase();
           occupiedPositions.add(`${startRow + i}-${startCol}`); // Add occupied positions
         }
@@ -191,9 +194,12 @@ export class BoardService {
       );
     }
 
-    const grid = newBoard.map(row => row.map(letter => letter.toUpperCase()));
+    // const grid = newBoard.map((row) =>
+    //   row.map((letter) => letter.toUpperCase()),
+    // );
+    console.log(newBoard)
 
-    const createdBoard = new this.boardModel({ grid, rows, cols });
+    const createdBoard = new this.boardModel({ newBoard, rows, cols });
     createdBoard.save();
     return createdBoard as BoardDocument;
   }
