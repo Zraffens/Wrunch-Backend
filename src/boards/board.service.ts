@@ -17,26 +17,21 @@ export class BoardService {
       4.5388,
     ];
 
-    // Calculate the total bias of the provided letters
     const totalBias = biases.reduce((sum, bias) => sum + bias, 0);
 
-    // Calculate the common bias for the remaining letters
     const remainingLetters = 26 - letters.length;
     const commonBias = (100 - totalBias) / remainingLetters;
 
-    // Generate the weighted list of letters
     const weightedLetters = [];
     for (let i = 0; i < letters.length; i++) {
       weightedLetters.push({ letter: letters[i], bias: biases[i] });
     }
     for (let i = 0; i < remainingLetters; i++) {
-      weightedLetters.push({ letter: '', bias: commonBias }); // Placeholder for remaining letters
+      weightedLetters.push({ letter: '', bias: commonBias });
     }
 
-    // Generate a random number between 0 and total bias
     const randomBias = Math.random() * totalBias;
 
-    // Find the letter corresponding to the random bias
     let cumulativeBias = 0;
     for (let i = 0; i < weightedLetters.length; i++) {
       cumulativeBias += weightedLetters[i].bias;
@@ -66,7 +61,10 @@ export class BoardService {
     rows: number,
     cols: number,
   ): boolean {
-    return (col + word.length * dCol) <= cols || (row + word.length * dRow) <= rows;
+    if (col + word.length * dCol > cols || row + word.length * dRow > rows) {
+      return false;
+    }
+    return true;
   }
 
   swapAdjacentCells(
@@ -99,6 +97,7 @@ export class BoardService {
         newBoard[i][j] = this.generateRandomLetter();
       }
     }
+    console.log(newBoard, 'random board');
     return newBoard;
   }
 
@@ -108,6 +107,7 @@ export class BoardService {
     rows: number,
     cols: number,
     occupiedPositions: Set<string>,
+    horizontal: boolean
   ): string[][] {
     let attempts = 0;
     let horBoard = newBoard.slice();
@@ -117,8 +117,8 @@ export class BoardService {
       let isOccupied = false;
       for (let i = 0; i < word.length; i++) {
         if (
-          occupiedPositions.has(`${startRow}-${startCol + i}`) &&
-          occupiedPositions.has(`${startRow + i}-${startCol}`)
+          (occupiedPositions.has(`${startRow}-${startCol + i}`) && horizontal) ||
+          (occupiedPositions.has(`${startRow + i}-${startCol}`) && !horizontal)
         ) {
           isOccupied = true;
           break;
@@ -143,7 +143,7 @@ export class BoardService {
         return horBoard;
       } else if (
         !isOccupied &&
-        !this.canPlaceWord(word, startRow, startCol, 1, 0, rows, cols)
+        this.canPlaceWord(word, startRow, startCol, 1, 0, rows, cols)
       ) {
         for (let i = 0; i < word.length; i++) {
           newBoard[startRow + i][startCol] = word[i].toUpperCase();
@@ -179,6 +179,7 @@ export class BoardService {
         rows,
         cols,
         occupiedPositions,
+        true
       );
     }
 
@@ -189,19 +190,23 @@ export class BoardService {
         rows,
         cols,
         occupiedPositions,
+        false
       );
     }
-
+    console.log(newBoard.length);
+    newBoard.forEach((row) => console.log(row.length));
     const grid = newBoard.map((row) =>
       row.map((letter) => {
-        const l1 = letter ? letter.toUpperCase() : this.generateRandomLetter().toUpperCase()
-        return l1
+        const l1 = letter
+          ? letter.toUpperCase()
+          : this.generateRandomLetter().toUpperCase();
+        return l1;
       }),
     );
-    grid.forEach(row => {
-      console.log(...row)
-    })
-    console.log(occupiedPositions)
+    // grid.forEach(row => {
+    //   console.log(...row)
+    // })
+    console.log(occupiedPositions);
 
     const createdBoard = new this.boardModel({ grid, rows, cols });
     createdBoard.save();
