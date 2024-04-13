@@ -60,34 +60,47 @@ export class BoardService {
     dCol: number,
     rows: number,
     cols: number,
-  ): boolean {
+    occupiedPositions: Set<string>,
+  ): boolean {const adjacentCells = [];
+    if (row > 0 && !occupiedPositions.has(`${row - 1}-${col}`)) adjacentCells.push([row - 1, col]);
+    if (row < rows - 1 && !occupiedPositions.has(`${row + 1}-${col}`)) adjacentCells.push([row + 1, col]);
+    if (col > 0 && !occupiedPositions.has(`${row}-${col - 1}`)) adjacentCells.push([row, col - 1]);
+    if (col < cols - 1 && !occupiedPositions.has(`${row}-${col + 1}`)) adjacentCells.push([row, col + 1]);
+  
+    if (adjacentCells.length === 0) {
+      // No adjacent unoccupied cells available for swapping
+      return false;
+    }
     if (col + word.length * dCol > cols || row + word.length * dRow > rows) {
       return false;
     }
     return true;
   }
 
-  swapAdjacentCells(
-    row: number,
-    col: number,
-    newBoard: string[][],
-  ): string[][] {
+  swapAdjacentCells(row: number, col: number, newBoard: string[][], occupiedPositions: Set<string>): string[][] {
     const adjacentCells = [];
     const rows = newBoard.length;
     const cols = newBoard[0].length;
-    if (row > 0) adjacentCells.push([row - 1, col]);
-    if (row < rows - 1) adjacentCells.push([row + 1, col]);
-    if (col > 0) adjacentCells.push([row, col - 1]);
-    if (col < cols - 1) adjacentCells.push([row, col + 1]);
-
+    if (row > 0 && !occupiedPositions.has(`${row - 1}-${col}`)) adjacentCells.push([row - 1, col]);
+    if (row < rows - 1 && !occupiedPositions.has(`${row + 1}-${col}`)) adjacentCells.push([row + 1, col]);
+    if (col > 0 && !occupiedPositions.has(`${row}-${col - 1}`)) adjacentCells.push([row, col - 1]);
+    if (col < cols - 1 && !occupiedPositions.has(`${row}-${col + 1}`)) adjacentCells.push([row, col + 1]);
+  
+    if (adjacentCells.length === 0) {
+      // No adjacent unoccupied cells available for swapping
+      return newBoard;
+    }
+  
     const randomIndex = Math.floor(Math.random() * adjacentCells.length);
     const [adjRow, adjCol] = adjacentCells[randomIndex];
     const temp = newBoard[row][col];
     newBoard[row][col] = newBoard[adjRow][adjCol];
     newBoard[adjRow][adjCol] = temp;
-
+    occupiedPositions.add(`${adjRow}-${adjCol}`);
+  
     return newBoard;
   }
+  
 
   createRandomBoard(rows: number, cols: number): string[][] {
     const newBoard: string[][] = [];
@@ -107,6 +120,8 @@ export class BoardService {
     rows: number,
     cols: number,
     occupiedPositions: Set<string>,
+    placedWords: Set<string>,
+    wordsAndPositions: object,
     horizontal: boolean
   ): string[][] {
     let attempts = 0;
@@ -126,11 +141,12 @@ export class BoardService {
       }
       if (
         !isOccupied &&
-        this.canPlaceWord(word, startRow, startCol, 0, 1, rows, cols)
+        this.canPlaceWord(word, startRow, startCol, 0, 1, rows, cols, occupiedPositions)
       ) {
         for (let i = 0; i < word.length; i++) {
           horBoard[startRow][startCol + i] = word[i].toUpperCase();
           occupiedPositions.add(`${startRow}-${startCol + i}`);
+          wordsAndPositions[word] = {position: [startRow, startCol], horizontal: true}
         }
 
         const randomIndex = Math.floor(Math.random() * word.length);
@@ -138,23 +154,28 @@ export class BoardService {
           startRow,
           startCol + randomIndex,
           horBoard,
+          occupiedPositions
         );
+        placedWords.add(word)
 
         return horBoard;
       } else if (
         !isOccupied &&
-        this.canPlaceWord(word, startRow, startCol, 1, 0, rows, cols)
+        this.canPlaceWord(word, startRow, startCol, 1, 0, rows, cols, occupiedPositions)
       ) {
         for (let i = 0; i < word.length; i++) {
           newBoard[startRow + i][startCol] = word[i].toUpperCase();
           occupiedPositions.add(`${startRow + i}-${startCol}`); // Add occupied positions
+          wordsAndPositions[word] = {position: [startRow, startCol], horizontal: false}
         }
         const randomIndex = Math.floor(Math.random() * word.length);
         newBoard = this.swapAdjacentCells(
           startRow + randomIndex,
           startCol,
           newBoard,
+          occupiedPositions
         );
+        placedWords.add(word)
         return newBoard;
       }
       attempts++;
@@ -172,6 +193,8 @@ export class BoardService {
     const shuffledWords = this.shuffleArray(wordList.slice());
 
     const occupiedPositions = new Set<string>();
+    const placedWords = new Set<string>();
+    const wordsAndPositions = new Object();
     for (let i = 0; i < horizontalWordsCount; i++) {
       newBoard = this.placeRandomWord(
         shuffledWords[i],
@@ -179,6 +202,8 @@ export class BoardService {
         rows,
         cols,
         occupiedPositions,
+        placedWords,
+        wordsAndPositions,
         true
       );
     }
@@ -190,11 +215,12 @@ export class BoardService {
         rows,
         cols,
         occupiedPositions,
+        placedWords,
+        wordsAndPositions,
         false
       );
     }
-    console.log(newBoard.length);
-    newBoard.forEach((row) => console.log(row.length));
+    console.log(wordsAndPositions);
     const grid = newBoard.map((row) =>
       row.map((letter) => {
         const l1 = letter
@@ -203,12 +229,8 @@ export class BoardService {
         return l1;
       }),
     );
-    // grid.forEach(row => {
-    //   console.log(...row)
-    // })
-    console.log(occupiedPositions);
 
-    const createdBoard = new this.boardModel({ grid, rows, cols });
+    const createdBoard = new this.boardModel({ grid, rows, cols, words: wordsAndPositions });
     createdBoard.save();
     return createdBoard as BoardDocument;
   }

@@ -15,7 +15,8 @@ export class Board {
   @Prop({ required: true })
   cols: number;
 
-  // Add other properties or methods as needed
+  @Prop({ required: true, type: Map, of: { position: [Number, Number], horizontal: Boolean } })
+  words: Map<string, { position: [number, number], horizontal: boolean }>;
 }
 
 export const BoardSchema = SchemaFactory.createForClass(Board);
