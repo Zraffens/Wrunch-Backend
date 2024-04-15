@@ -61,12 +61,17 @@ export class BoardService {
     rows: number,
     cols: number,
     occupiedPositions: Set<string>,
-  ): boolean {const adjacentCells = [];
-    if (row > 0 && !occupiedPositions.has(`${row - 1}-${col}`)) adjacentCells.push([row - 1, col]);
-    if (row < rows - 1 && !occupiedPositions.has(`${row + 1}-${col}`)) adjacentCells.push([row + 1, col]);
-    if (col > 0 && !occupiedPositions.has(`${row}-${col - 1}`)) adjacentCells.push([row, col - 1]);
-    if (col < cols - 1 && !occupiedPositions.has(`${row}-${col + 1}`)) adjacentCells.push([row, col + 1]);
-  
+  ): boolean {
+    const adjacentCells = [];
+    if (row > 0 && !occupiedPositions.has(`${row - 1}-${col}`))
+      adjacentCells.push([row - 1, col]);
+    if (row < rows - 1 && !occupiedPositions.has(`${row + 1}-${col}`))
+      adjacentCells.push([row + 1, col]);
+    if (col > 0 && !occupiedPositions.has(`${row}-${col - 1}`))
+      adjacentCells.push([row, col - 1]);
+    if (col < cols - 1 && !occupiedPositions.has(`${row}-${col + 1}`))
+      adjacentCells.push([row, col + 1]);
+
     if (adjacentCells.length === 0) {
       // No adjacent unoccupied cells available for swapping
       return false;
@@ -77,30 +82,57 @@ export class BoardService {
     return true;
   }
 
-  swapAdjacentCells(row: number, col: number, newBoard: string[][], occupiedPositions: Set<string>): string[][] {
+  swapAdjacentCells(
+    row: number,
+    col: number,
+    newBoard: string[][],
+    occupiedPositions: Set<string>,
+  ): string[][] {
     const adjacentCells = [];
     const rows = newBoard.length;
     const cols = newBoard[0].length;
-    if (row > 0 && !occupiedPositions.has(`${row - 1}-${col}`)) adjacentCells.push([row - 1, col]);
-    if (row < rows - 1 && !occupiedPositions.has(`${row + 1}-${col}`)) adjacentCells.push([row + 1, col]);
-    if (col > 0 && !occupiedPositions.has(`${row}-${col - 1}`)) adjacentCells.push([row, col - 1]);
-    if (col < cols - 1 && !occupiedPositions.has(`${row}-${col + 1}`)) adjacentCells.push([row, col + 1]);
-  
+    if (row > 0 && !occupiedPositions.has(`${row - 1}-${col}`))
+      adjacentCells.push([row - 1, col]);
+    if (row < rows - 1 && !occupiedPositions.has(`${row + 1}-${col}`))
+      adjacentCells.push([row + 1, col]);
+    if (col > 0 && !occupiedPositions.has(`${row}-${col - 1}`))
+      adjacentCells.push([row, col - 1]);
+    if (col < cols - 1 && !occupiedPositions.has(`${row}-${col + 1}`))
+      adjacentCells.push([row, col + 1]);
+
     if (adjacentCells.length === 0) {
       // No adjacent unoccupied cells available for swapping
       return newBoard;
     }
-  
     const randomIndex = Math.floor(Math.random() * adjacentCells.length);
     const [adjRow, adjCol] = adjacentCells[randomIndex];
-    const temp = newBoard[row][col];
-    newBoard[row][col] = newBoard[adjRow][adjCol];
-    newBoard[adjRow][adjCol] = temp;
-    occupiedPositions.add(`${adjRow}-${adjCol}`);
-  
+
+    if (newBoard[row][col] === newBoard[adjRow][adjCol]) {
+      // If the letters are the same, choose another random cell for swapping
+      const otherAdjacentCells = adjacentCells.filter(
+        ([r, c]) => r !== adjRow || c !== adjCol,
+      );
+      if (otherAdjacentCells.length === 0) {
+        // If no other adjacent cells available, return the unchanged board
+        return newBoard;
+      }
+      const [otherRow, otherCol] =
+        otherAdjacentCells[
+          Math.floor(Math.random() * otherAdjacentCells.length)
+        ];
+      const temp = newBoard[row][col];
+      newBoard[row][col] = newBoard[otherRow][otherCol];
+      newBoard[otherRow][otherCol] = temp;
+      occupiedPositions.add(`${otherRow}-${otherCol}`);
+    } else {
+      // If the letters are different, perform the swap
+      const temp = newBoard[row][col];
+      newBoard[row][col] = newBoard[adjRow][adjCol];
+      newBoard[adjRow][adjCol] = temp;
+      occupiedPositions.add(`${adjRow}-${adjCol}`);
+    }
     return newBoard;
   }
-  
 
   createRandomBoard(rows: number, cols: number): string[][] {
     const newBoard: string[][] = [];
@@ -122,7 +154,7 @@ export class BoardService {
     occupiedPositions: Set<string>,
     placedWords: Set<string>,
     wordsAndPositions: object,
-    horizontal: boolean
+    horizontal: boolean,
   ): string[][] {
     let attempts = 0;
     let horBoard = newBoard.slice();
@@ -132,7 +164,8 @@ export class BoardService {
       let isOccupied = false;
       for (let i = 0; i < word.length; i++) {
         if (
-          (occupiedPositions.has(`${startRow}-${startCol + i}`) && horizontal) ||
+          (occupiedPositions.has(`${startRow}-${startCol + i}`) &&
+            horizontal) ||
           (occupiedPositions.has(`${startRow + i}-${startCol}`) && !horizontal)
         ) {
           isOccupied = true;
@@ -141,12 +174,24 @@ export class BoardService {
       }
       if (
         !isOccupied &&
-        this.canPlaceWord(word, startRow, startCol, 0, 1, rows, cols, occupiedPositions)
+        this.canPlaceWord(
+          word,
+          startRow,
+          startCol,
+          0,
+          1,
+          rows,
+          cols,
+          occupiedPositions,
+        )
       ) {
         for (let i = 0; i < word.length; i++) {
           horBoard[startRow][startCol + i] = word[i].toUpperCase();
           occupiedPositions.add(`${startRow}-${startCol + i}`);
-          wordsAndPositions[word] = {position: [startRow, startCol], horizontal: true}
+          wordsAndPositions[word] = {
+            position: [startRow, startCol],
+            horizontal: true,
+          };
         }
 
         const randomIndex = Math.floor(Math.random() * word.length);
@@ -154,28 +199,40 @@ export class BoardService {
           startRow,
           startCol + randomIndex,
           horBoard,
-          occupiedPositions
+          occupiedPositions,
         );
-        placedWords.add(word)
+        placedWords.add(word);
 
         return horBoard;
       } else if (
         !isOccupied &&
-        this.canPlaceWord(word, startRow, startCol, 1, 0, rows, cols, occupiedPositions)
+        this.canPlaceWord(
+          word,
+          startRow,
+          startCol,
+          1,
+          0,
+          rows,
+          cols,
+          occupiedPositions,
+        )
       ) {
         for (let i = 0; i < word.length; i++) {
           newBoard[startRow + i][startCol] = word[i].toUpperCase();
           occupiedPositions.add(`${startRow + i}-${startCol}`); // Add occupied positions
-          wordsAndPositions[word] = {position: [startRow, startCol], horizontal: false}
+          wordsAndPositions[word] = {
+            position: [startRow, startCol],
+            horizontal: false,
+          };
         }
         const randomIndex = Math.floor(Math.random() * word.length);
         newBoard = this.swapAdjacentCells(
           startRow + randomIndex,
           startCol,
           newBoard,
-          occupiedPositions
+          occupiedPositions,
         );
-        placedWords.add(word)
+        placedWords.add(word);
         return newBoard;
       }
       attempts++;
@@ -204,7 +261,7 @@ export class BoardService {
         occupiedPositions,
         placedWords,
         wordsAndPositions,
-        true
+        true,
       );
     }
 
@@ -217,7 +274,7 @@ export class BoardService {
         occupiedPositions,
         placedWords,
         wordsAndPositions,
-        false
+        false,
       );
     }
     console.log(wordsAndPositions);
@@ -230,7 +287,12 @@ export class BoardService {
       }),
     );
 
-    const createdBoard = new this.boardModel({ grid, rows, cols, words: wordsAndPositions });
+    const createdBoard = new this.boardModel({
+      grid,
+      rows,
+      cols,
+      words: wordsAndPositions,
+    });
     createdBoard.save();
     return createdBoard as BoardDocument;
   }
