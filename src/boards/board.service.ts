@@ -4,9 +4,11 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Board, BoardDocument } from './board.model';
 import { Injectable } from '@nestjs/common';
+import * as allWordsData from './all_words.json';
 
 @Injectable()
 export class BoardService {
+  private readonly allWords: Set<string> = new Set(allWordsData);
   constructor(
     @InjectModel(Board.name) private readonly boardModel: Model<BoardDocument>,
   ) {}
@@ -44,7 +46,7 @@ export class BoardService {
     return '';
   }
 
-  shuffleArray<T>(array: T[]): T[] {
+  private shuffleArray<T>(array: T[]): T[] {
     for (let i = array.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [array[i], array[j]] = [array[j], array[i]];
@@ -52,7 +54,7 @@ export class BoardService {
     return array;
   }
 
-  canPlaceWord(
+  private canPlaceWord(
     word: string,
     row: number,
     col: number,
@@ -82,7 +84,7 @@ export class BoardService {
     return true;
   }
 
-  swapAdjacentCells(
+  private swapAdjacentCells(
     row: number,
     col: number,
     newBoard: string[][],
@@ -142,7 +144,7 @@ export class BoardService {
         newBoard[i][j] = this.generateRandomLetter();
       }
     }
-    console.log(newBoard, 'random board');
+    // console.log(newBoard, 'random board');
     return newBoard;
   }
 
@@ -242,6 +244,66 @@ export class BoardService {
     return newBoard;
   }
 
+  private findFormedWords(board: string[][]): [string[][], string[]] {
+    const formedWords: string[] = [];
+    const numRows = board.length;
+    const numCols = board[0].length;
+    // console.log('before', board)
+
+    // Check horizontal words
+    for (let i = 0; i < board.length; i++) {
+      for (let j = 0; j < board[i].length - 3; j++) { // Start from each cell except the last three
+        for (let k = 4; k <= board[i].length - j; k++) { // Check all possible lengths from 4 up to the remaining length
+          const horizontalWord = (board[i].slice(j, j + k).join(''));
+          // console.log(horizontalWord)
+          // console.log(this.allWords.has('rook'))
+          if ([...this.allWords].includes(horizontalWord.toLowerCase()) && horizontalWord.length > 3) {
+            // console.log(horizontalWord, 'inside the if')
+            formedWords.push(horizontalWord.toLowerCase());
+            for (let l = j; l < j + k; l++) {
+              board[i][l] = ''; // Remove the formed word
+            }
+          }
+        }
+      }
+    }
+  
+    // Check vertical words
+    for (let j = 0; j < board[0].length; j++) {
+      for (let i = 0; i < board.length - 3; i++) { // Start from each row except the last three
+        for (let k = 4; k <= board.length - i; k++) { // Check all possible lengths from 4 up to the remaining length
+          let verticalWord = '';
+          for (let l = 0; l < k; l++) {
+            verticalWord += board[i + l][j];
+          }
+          // console.log(verticalWord, 'vertical')
+          if (this.allWords.has(verticalWord.toLowerCase()) && verticalWord.length > 3) {
+            formedWords.push(verticalWord.toLowerCase());
+            for (let l = 0; l < k; l++) {
+              board[i + l][j] = ''; // Remove the formed word
+            }
+          }
+        }
+      }
+    }
+    console.log(formedWords, board)
+
+    return [board, formedWords];
+  }
+
+
+  private fillEmptyCells(board: string[][]): string[][] {
+    const newBoard = [...board];
+    for (let i = 0; i < newBoard.length; i++) {
+      for (let j = 0; j < newBoard[i].length; j++) {
+        if (newBoard[i][j] === '') {
+          newBoard[i][j] = this.generateRandomLetter();
+        }
+      }
+    }
+    return newBoard
+  }
+
   generateBoard(rows: number, cols: number, wordList: string[]): BoardDocument {
     let newBoard = this.createRandomBoard(rows, cols);
 
@@ -277,7 +339,15 @@ export class BoardService {
         false,
       );
     }
-    console.log(wordsAndPositions);
+    // console.log(wordsAndPositions);
+    let formedWords: string[]
+    [newBoard, formedWords] = this.findFormedWords(newBoard);
+
+    while (formedWords.length > 0) {
+      [newBoard, formedWords] = this.findFormedWords(newBoard);
+      newBoard = this.fillEmptyCells(newBoard);
+    }
+
     const grid = newBoard.map((row) =>
       row.map((letter) => {
         const l1 = letter

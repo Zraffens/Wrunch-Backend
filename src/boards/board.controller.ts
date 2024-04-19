@@ -15,7 +15,6 @@ export class BoardController {
     // const rawData = fs.readFileSync('4_letter_words.json', 'utf-8');
 
     // Parse JSON data into a JavaScript object
-    console.log(words)
     const selectedWords = this.selectRandomWords(words.words, 20);
     // const wordList = ["ride", "cook", "hope", "hurt", "gift", "true", "soft", "bold", "deep", "wish",
     //        "talk", "wait", "want", "like", "good", "easy", "pink", "rich", "safe", "zoom",
