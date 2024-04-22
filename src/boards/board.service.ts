@@ -78,10 +78,68 @@ export class BoardService {
       // No adjacent unoccupied cells available for swapping
       return false;
     }
-    if (col + word.length * dCol > cols || row + word.length * dRow > rows) {
+    if (col + word.length * dCol >= cols || row + word.length * dRow >= rows) {
       return false;
     }
     return true;
+  }
+
+
+  private adjacentCells(
+    startRow: number,
+    startCol: number,
+    board: string[][],
+    word: string,
+    occupiedPositions: Set<string>,
+    horizontal: boolean,
+  ): {[key: string]: [number, number]} {
+    const rows = board.length;
+    const cols = board[0].length;
+    const wordLength = word.length;
+    let adjacentCells: {[key: string]: [number, number]} = {};
+
+    // Iterate over each cell in the word
+    for (let i = 0; i < wordLength; i++) {
+      const row = horizontal ? startRow : startRow + i;
+      const col = horizontal ? startCol + i : startCol;
+      console.log(row, col)
+      // Check adjacent cells for swapping
+      if (
+        row > 0 &&
+        !occupiedPositions.has(`${row - 1}-${col}`) &&
+        board[row] &&
+        !(board[row - 1][col] == board[row][col])
+      ) {
+        adjacentCells[`${row}_${col}`] = [row - 1, col]
+      }
+      if (
+        row < rows - 1 &&
+        !occupiedPositions.has(`${row + 1}-${col}`) &&
+        !(board[row + 1][col] == board[row][col])
+      ) {
+        adjacentCells[`${row}_${col}`] = [row + 1, col]
+      }
+      if (
+        col > 0 &&
+        !occupiedPositions.has(`${row}-${col - 1}`) &&
+        board[row] &&
+        !(board[row][col - 1] == board[row][col])
+      ) {
+        adjacentCells[`${row}_${col}`] = [row, col - 1]
+      }
+      if (
+        col < cols - 1 &&
+        !occupiedPositions.has(`${row}-${col + 1}`) &&
+        board[row] &&
+        !(board[row][col + 1] == board[row][col])
+      ) {
+        adjacentCells[`${row}_${col}`] = [row, col + 1];
+      }
+    }
+    
+
+    // All cells in the word have valid adjacent unoccupied cells for swapping
+    return adjacentCells;
   }
 
   private swapAdjacentCells(
@@ -89,50 +147,17 @@ export class BoardService {
     col: number,
     newBoard: string[][],
     occupiedPositions: Set<string>,
+    adjacentCell: [number, number]
   ): string[][] {
-    const adjacentCells = [];
     const rows = newBoard.length;
     const cols = newBoard[0].length;
-    if (row > 0 && !occupiedPositions.has(`${row - 1}-${col}`))
-      adjacentCells.push([row - 1, col]);
-    if (row < rows - 1 && !occupiedPositions.has(`${row + 1}-${col}`))
-      adjacentCells.push([row + 1, col]);
-    if (col > 0 && !occupiedPositions.has(`${row}-${col - 1}`))
-      adjacentCells.push([row, col - 1]);
-    if (col < cols - 1 && !occupiedPositions.has(`${row}-${col + 1}`))
-      adjacentCells.push([row, col + 1]);
+    const [adjRow, adjCol] = adjacentCell;
 
-    if (adjacentCells.length === 0) {
-      // No adjacent unoccupied cells available for swapping
-      return newBoard;
-    }
-    const randomIndex = Math.floor(Math.random() * adjacentCells.length);
-    const [adjRow, adjCol] = adjacentCells[randomIndex];
-
-    if (newBoard[row][col] === newBoard[adjRow][adjCol]) {
-      // If the letters are the same, choose another random cell for swapping
-      const otherAdjacentCells = adjacentCells.filter(
-        ([r, c]) => r !== adjRow || c !== adjCol,
-      );
-      if (otherAdjacentCells.length === 0) {
-        // If no other adjacent cells available, return the unchanged board
-        return newBoard;
-      }
-      const [otherRow, otherCol] =
-        otherAdjacentCells[
-          Math.floor(Math.random() * otherAdjacentCells.length)
-        ];
-      const temp = newBoard[row][col];
-      newBoard[row][col] = newBoard[otherRow][otherCol];
-      newBoard[otherRow][otherCol] = temp;
-      occupiedPositions.add(`${otherRow}-${otherCol}`);
-    } else {
-      // If the letters are different, perform the swap
-      const temp = newBoard[row][col];
-      newBoard[row][col] = newBoard[adjRow][adjCol];
-      newBoard[adjRow][adjCol] = temp;
-      occupiedPositions.add(`${adjRow}-${adjCol}`);
-    }
+  
+    const temp = newBoard[row][col];
+    newBoard[row][col] = newBoard[adjRow][adjCol];
+    newBoard[adjRow][adjCol] = temp;
+    occupiedPositions.add(`${adjRow}-${adjCol}`);
     return newBoard;
   }
 
@@ -174,6 +199,14 @@ export class BoardService {
           break;
         }
       }
+      const adjacent = this.adjacentCells(
+        startRow,
+        startCol,
+        newBoard,
+        word,
+        occupiedPositions,
+        horizontal,
+      )
       if (
         !isOccupied &&
         this.canPlaceWord(
@@ -185,7 +218,8 @@ export class BoardService {
           rows,
           cols,
           occupiedPositions,
-        )
+        ) &&
+        Object.keys(adjacent).length > 0
       ) {
         for (let i = 0; i < word.length; i++) {
           horBoard[startRow][startCol + i] = word[i].toUpperCase();
@@ -196,12 +230,15 @@ export class BoardService {
           };
         }
 
-        const randomIndex = Math.floor(Math.random() * word.length);
+        const randomIndex = Math.floor(Math.random() * Object.keys(adjacent).length);
+        const cellCoords = Object.keys(adjacent)[randomIndex]
+        const swapCell: string[] = cellCoords.split('_')
         horBoard = this.swapAdjacentCells(
-          startRow,
-          startCol + randomIndex,
+          parseInt(swapCell[0]),
+          parseInt(swapCell[1]),
           horBoard,
           occupiedPositions,
+          adjacent[cellCoords]
         );
         placedWords.add(word);
 
@@ -227,12 +264,15 @@ export class BoardService {
             horizontal: false,
           };
         }
-        const randomIndex = Math.floor(Math.random() * word.length);
+        const randomIndex = Math.floor(Math.random() * Object.keys(adjacent).length);
+        const cellCoords = Object.keys(adjacent)[randomIndex]
+        const swapCell: string[] = cellCoords.split('_')
         newBoard = this.swapAdjacentCells(
-          startRow + randomIndex,
-          startCol,
-          newBoard,
+          parseInt(swapCell[0]),
+          parseInt(swapCell[1]),
+          horBoard,
           occupiedPositions,
+          adjacent[cellCoords]
         );
         placedWords.add(word);
         return newBoard;
@@ -252,12 +292,17 @@ export class BoardService {
 
     // Check horizontal words
     for (let i = 0; i < board.length; i++) {
-      for (let j = 0; j < board[i].length - 3; j++) { // Start from each cell except the last three
-        for (let k = 4; k <= board[i].length - j; k++) { // Check all possible lengths from 4 up to the remaining length
-          const horizontalWord = (board[i].slice(j, j + k).join(''));
+      for (let j = 0; j < board[i].length - 3; j++) {
+        // Start from each cell except the last three
+        for (let k = 4; k <= board[i].length - j; k++) {
+          // Check all possible lengths from 4 up to the remaining length
+          const horizontalWord = board[i].slice(j, j + k).join('');
           // console.log(horizontalWord)
           // console.log(this.allWords.has('rook'))
-          if ([...this.allWords].includes(horizontalWord.toLowerCase()) && horizontalWord.length > 3) {
+          if (
+            [...this.allWords].includes(horizontalWord.toLowerCase()) &&
+            horizontalWord.length > 3
+          ) {
             // console.log(horizontalWord, 'inside the if')
             formedWords.push(horizontalWord.toLowerCase());
             for (let l = j; l < j + k; l++) {
@@ -267,17 +312,22 @@ export class BoardService {
         }
       }
     }
-  
+
     // Check vertical words
     for (let j = 0; j < board[0].length; j++) {
-      for (let i = 0; i < board.length - 3; i++) { // Start from each row except the last three
-        for (let k = 4; k <= board.length - i; k++) { // Check all possible lengths from 4 up to the remaining length
+      for (let i = 0; i < board.length - 3; i++) {
+        // Start from each row except the last three
+        for (let k = 4; k <= board.length - i; k++) {
+          // Check all possible lengths from 4 up to the remaining length
           let verticalWord = '';
           for (let l = 0; l < k; l++) {
             verticalWord += board[i + l][j];
           }
           // console.log(verticalWord, 'vertical')
-          if (this.allWords.has(verticalWord.toLowerCase()) && verticalWord.length > 3) {
+          if (
+            this.allWords.has(verticalWord.toLowerCase()) &&
+            verticalWord.length > 3
+          ) {
             formedWords.push(verticalWord.toLowerCase());
             for (let l = 0; l < k; l++) {
               board[i + l][j] = ''; // Remove the formed word
@@ -286,11 +336,10 @@ export class BoardService {
         }
       }
     }
-    console.log(formedWords, board)
+    console.log(formedWords, board);
 
     return [board, formedWords];
   }
-
 
   private fillEmptyCells(board: string[][]): string[][] {
     const newBoard = [...board];
@@ -301,7 +350,7 @@ export class BoardService {
         }
       }
     }
-    return newBoard
+    return newBoard;
   }
 
   generateBoard(rows: number, cols: number, wordList: string[]): BoardDocument {
@@ -340,13 +389,13 @@ export class BoardService {
       );
     }
     // console.log(wordsAndPositions);
-    let formedWords: string[]
-    [newBoard, formedWords] = this.findFormedWords(newBoard);
+    // let formedWords: string[]
+    // [newBoard, formedWords] = this.findFormedWords(newBoard);
 
-    while (formedWords.length > 0) {
-      [newBoard, formedWords] = this.findFormedWords(newBoard);
-      newBoard = this.fillEmptyCells(newBoard);
-    }
+    // while (formedWords.length > 0) {
+    //   [newBoard, formedWords] = this.findFormedWords(newBoard);
+    //   newBoard = this.fillEmptyCells(newBoard);
+    // }
 
     const grid = newBoard.map((row) =>
       row.map((letter) => {
