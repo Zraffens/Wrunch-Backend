@@ -94,10 +94,10 @@ export class BoardService {
       const row = horizontal ? startRow : startRow + i;
       const col = horizontal ? startCol + i : startCol;
       // Check adjacent cells for swapping
+      console.log(row, col, word, horizontal);
       if (
         row > 0 &&
         !occupiedPositions.has(`${row - 1}-${col}`) &&
-        board[row] &&
         !(board[row - 1][col] == board[row][col])
       ) {
         adjacentCells[`${row}_${col}`] = [row - 1, col];
@@ -112,7 +112,6 @@ export class BoardService {
       if (
         col > 0 &&
         !occupiedPositions.has(`${row}-${col - 1}`) &&
-        board[row] &&
         !(board[row][col - 1] == board[row][col])
       ) {
         adjacentCells[`${row}_${col}`] = [row, col - 1];
@@ -120,7 +119,6 @@ export class BoardService {
       if (
         col < cols - 1 &&
         !occupiedPositions.has(`${row}-${col + 1}`) &&
-        board[row] &&
         !(board[row][col + 1] == board[row][col])
       ) {
         adjacentCells[`${row}_${col}`] = [row, col + 1];
@@ -175,109 +173,180 @@ export class BoardService {
     while (attempts < 1000) {
       const startRow = Math.floor(Math.random() * rows);
       const startCol = Math.floor(Math.random() * cols);
-      let isOccupied = false;
+
+      let canPlace = true;
       for (let i = 0; i < word.length; i++) {
-        const row = horizontal ? startRow  + i: startRow;
-        const col = horizontal ? startCol: startCol + i;
-        console.log(occupiedPositions.has(`${row}-${col}`), `${row}-${col}`, word)
+        const row = horizontal ? startRow : startRow + i;
+        const col = horizontal ? startCol + i : startCol;
+
+        if (row < 0 || row >= rows || col < 0 || col >= cols) {
+          // Out of bounds
+          canPlace = false;
+          break;
+        }
+
         if (occupiedPositions.has(`${row}-${col}`)) {
-          isOccupied = true;
+          // Cell is occupied
+          canPlace = false;
           break;
         }
       }
-      if (isOccupied) {
-        continue;
+      if (!canPlace) continue;
+      const adjacent = this.adjacentCells(
+        startRow,
+        startCol,
+        newBoard,
+        word,
+        occupiedPositions,
+        horizontal,
+      );
+      if (Object.keys(adjacent).length == 0) {
+        canPlace = false;
       }
-      if (isOccupied) console.log('fuck you')
-      for (let i = 0; i < word.length; i++) {
-        const adjacent = this.adjacentCells(
-          startRow,
-          startCol,
-          newBoard,
-          word,
-          occupiedPositions,
-          horizontal,
-        );
-        if (
-          !isOccupied &&
-          this.canPlaceWord(
-            word,
-            startRow,
-            startCol,
-            0,
-            1,
-            rows,
-            cols,
-            occupiedPositions,
-          ) &&
-          Object.keys(adjacent).length > 0
-        ) {
-          for (let i = 0; i < word.length; i++) {
-            horBoard[startRow][startCol + i] = word[i].toUpperCase();
-            occupiedPositions.add(`${startRow}-${startCol + i}`);
-            wordsAndPositions[word] = {
-              position: [startRow, startCol],
-              horizontal: true,
-            };
-          }
+      if (canPlace) {
+        // Place the word on the board
+        for (let i = 0; i < word.length; i++) {
+          const row = horizontal ? startRow : startRow + i;
+          const col = horizontal ? startCol + i : startCol;
 
-          const randomIndex = Math.floor(
-            Math.random() * Object.keys(adjacent).length,
-          );
-          const cellCoords = Object.keys(adjacent)[randomIndex];
-          const swapCell: string[] = cellCoords.split('_');
-          horBoard = this.swapAdjacentCells(
-            parseInt(swapCell[0]),
-            parseInt(swapCell[1]),
-            horBoard,
-            occupiedPositions,
-            adjacent[cellCoords],
-          );
-          placedWords.add(word);
-
-          return horBoard;
-        } else if (
-          !isOccupied &&
-          this.canPlaceWord(
-            word,
-            startRow,
-            startCol,
-            1,
-            0,
-            rows,
-            cols,
-            occupiedPositions,
-          )
-        ) {
-          for (let i = 0; i < word.length; i++) {
-            newBoard[startRow + i][startCol] = word[i].toUpperCase();
-            occupiedPositions.add(`${startRow + i}-${startCol}`); // Add occupied positions
-            wordsAndPositions[word] = {
-              position: [startRow, startCol],
-              horizontal: false,
-            };
-          }
-          const randomIndex = Math.floor(
-            Math.random() * Object.keys(adjacent).length,
-          );
-          const cellCoords = Object.keys(adjacent)[randomIndex];
-          const swapCell: string[] = cellCoords.split('_');
-          newBoard = this.swapAdjacentCells(
-            parseInt(swapCell[0]),
-            parseInt(swapCell[1]),
-            horBoard,
-            occupiedPositions,
-            adjacent[cellCoords],
-          );
-          placedWords.add(word);
-          return newBoard;
+          horBoard[row][col] = word[i].toUpperCase();
+          occupiedPositions.add(`${row}-${col}`);
+          wordsAndPositions[word] = {
+            position: [startRow, startCol],
+            horizontal: horizontal,
+          };
         }
-        attempts++;
+        placedWords.add(word);
+        const randomIndex = Math.floor(
+          Math.random() * Object.keys(adjacent).length,
+        );
+        const cellCoords = Object.keys(adjacent)[randomIndex];
+        const swapCell: string[] = cellCoords.split('_');
+        newBoard = this.swapAdjacentCells(
+          parseInt(swapCell[0]),
+          parseInt(swapCell[1]),
+          horBoard,
+          occupiedPositions,
+          adjacent[cellCoords],
+        );
+        placedWords.add(word);
+        return newBoard;
       }
-      console.error('Failed to place word:', word);
-      console.log('Failed to place word:', word);
-      return newBoard;
+      attempts++;
     }
+    console.log("can't place word: ", word);
+    return newBoard
+
+    // let isOccupied = false;
+    // for (let i = 0; i < word.length; i++) {
+    //   const row = horizontal ? startRow + i : startRow;
+    //   const col = horizontal ? startCol : startCol + i;
+    //   // console.log(occupiedPositions.has(`${row}-${col}`), `${row}-${col}`, word)
+    //   if (occupiedPositions.has(`${row}-${col}`)) {
+    //     isOccupied = true;
+    //     break;
+    //   }
+    // }
+    // if (isOccupied) {
+    //   continue;
+    // }
+    // if (horizontal) {
+    //   if (
+    //     !isOccupied &&
+    //     this.canPlaceWord(
+    //       word,
+    //       startRow,
+    //       startCol,
+    //       0,
+    //       1,
+    //       rows,
+    //       cols,
+    //       occupiedPositions,
+    //     )
+    //   ) {
+    //     for (let i = 0; i < word.length; i++) {
+    //       horBoard[startRow][startCol + i] = word[i].toUpperCase();
+    //       occupiedPositions.add(`${startRow}-${startCol + i}`);
+    //       wordsAndPositions[word] = {
+    //         position: [startRow, startCol],
+    //         horizontal: true,
+    //       };
+    //     }
+    // }
+    // if (
+    //   !isOccupied &&
+    //   this.canPlaceWord(
+    //     word,
+    //     startRow,
+    //     startCol,
+    //     0,
+    //     1,
+    //     rows,
+    //     cols,
+    //     occupiedPositions,
+    //   )
+    // ) {
+    //   for (let i = 0; i < word.length; i++) {
+    //     horBoard[startRow][startCol + i] = word[i].toUpperCase();
+    //     occupiedPositions.add(`${startRow}-${startCol + i}`);
+    //     wordsAndPositions[word] = {
+    //       position: [startRow, startCol],
+    //       horizontal: true,
+    //     };
+    //   }
+
+    //   const randomIndex = Math.floor(
+    //     Math.random() * Object.keys(adjacent).length,
+    //   );
+    //   const cellCoords = Object.keys(adjacent)[randomIndex];
+    //   const swapCell: string[] = cellCoords.split('_');
+    //   horBoard = this.swapAdjacentCells(
+    //     parseInt(swapCell[0]),
+    //     parseInt(swapCell[1]),
+    //     horBoard,
+    //     occupiedPositions,
+    //     adjacent[cellCoords],
+    //   );
+    //   placedWords.add(word);
+
+    //   return horBoard;
+    // } else if (
+    //   !isOccupied &&
+    //   this.canPlaceWord(
+    //     word,
+    //     startRow,
+    //     startCol,
+    //     1,
+    //     0,
+    //     rows,
+    //     cols,
+    //     occupiedPositions,
+    //   )
+    // ) {
+    //   for (let i = 0; i < word.length; i++) {
+    //     newBoard[startRow + i][startCol] = word[i].toUpperCase();
+    //     occupiedPositions.add(`${startRow + i}-${startCol}`); // Add occupied positions
+    //     wordsAndPositions[word] = {
+    //       position: [startRow, startCol],
+    //       horizontal: false,
+    //     };
+    //   }
+    //   const randomIndex = Math.floor(
+    //     Math.random() * Object.keys(adjacent).length,
+    //   );
+    //   const cellCoords = Object.keys(adjacent)[randomIndex];
+    //   const swapCell: string[] = cellCoords.split('_');
+    //   newBoard = this.swapAdjacentCells(
+    //     parseInt(swapCell[0]),
+    //     parseInt(swapCell[1]),
+    //     horBoard,
+    //     occupiedPositions,
+    //     adjacent[cellCoords],
+    //   );
+    //   placedWords.add(word);
+    //   return newBoard;
+    // }
+    // attempts++;
   }
 
   private findFormedWords(board: string[][]): [string[][], string[]] {
@@ -392,12 +461,6 @@ export class BoardService {
     //   [newBoard, formedWords] = this.findFormedWords(newBoard);
     //   newBoard = this.fillEmptyCells(newBoard);
     // }
-    console.log(
-      'length',
-      [...occupiedPositions],
-      [...occupiedPositions].length,
-      Object.values(wordsAndPositions),
-    );
 
     const grid = newBoard.map((row) =>
       row.map((letter) => {
